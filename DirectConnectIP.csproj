@@ -4,6 +4,7 @@
         <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <NuGetAudit>false</NuGetAudit>
+        <DefaultItemExcludes>$(DefaultItemExcludes);SlayTheSpire2_QuickSL\**;Slay the Spire 2\**</DefaultItemExcludes>
     </PropertyGroup>
 
     <PropertyGroup>

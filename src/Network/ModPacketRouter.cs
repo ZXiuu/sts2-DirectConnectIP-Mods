@@ -54,6 +54,8 @@ public static class ModPacketRouter
                 ModPacketType.SyncFullList => new SyncFullListPacket(),
                 ModPacketType.SyncSingle => new SyncSinglePacket(),
                 ModPacketType.SyncRemove => new SyncRemovePacket(),
+                ModPacketType.QuickSLRequest => new QuickSLRequestPacket(),
+                ModPacketType.QuickSLResponse => new QuickSLResponsePacket(),
                 _ => null
             };
 

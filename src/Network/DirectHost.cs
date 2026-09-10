@@ -5,12 +5,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DirectConnectIP.Network.Packets;
+using DirectConnectIP.Patches.Game;
 using DirectConnectIP.Patches.Network;
 using Godot;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Multiplayer.Transport;
 using MegaCrit.Sts2.Core.Multiplayer.Transport.ENet;
+using MegaCrit.Sts2.Core.Nodes.CommonUi;
 
 namespace DirectConnectIP.Network;
 
@@ -199,15 +201,48 @@ public class DirectHost(INetHostHandler handler) : NetHost(handler)
 
     private void HandleModPacket(ulong senderId, IModPacket packet)
     {
-        if (packet is not SyncClientNamePacket namePacket) return;
-        PlayerNameRegistry.RemoteNames[senderId] = namePacket.PlayerName;
+        switch (packet)
+        {
+            case SyncClientNamePacket namePacket:
+                PlayerNameRegistry.RemoteNames[senderId] = namePacket.PlayerName;
 
-        var fullList = new SyncFullListPacket();
-        foreach (var kvp in PlayerNameRegistry.RemoteNames) fullList.Players[kvp.Key] = kvp.Value;
-        fullList.Players[ModEntry.Config.LocalPlayerId] = ModEntry.Config.LocalPlayerName;
-        SendModPacketToClient(senderId, fullList);
+                var fullList = new SyncFullListPacket();
+                foreach (var kvp in PlayerNameRegistry.RemoteNames) fullList.Players[kvp.Key] = kvp.Value;
+                fullList.Players[ModEntry.Config.LocalPlayerId] = ModEntry.Config.LocalPlayerName;
+                SendModPacketToClient(senderId, fullList);
 
-        BroadcastModPacket(new SyncSinglePacket(senderId, namePacket.PlayerName), excludeId: senderId);
+                BroadcastModPacket(new SyncSinglePacket(senderId, namePacket.PlayerName), excludeId: senderId);
+                break;
+
+            case QuickSLRequestPacket slRequest:
+                HandleQuickSLRequest(senderId, slRequest);
+                break;
+        }
+    }
+
+    private void HandleQuickSLRequest(ulong senderId, QuickSLRequestPacket request)
+    {
+        var requesterName = PlayerNameRegistry.RemoteNames.TryGetValue(senderId, out var name)
+            ? name
+            : $"玩家 {senderId}";
+
+        Log.Info($"[DirectConnectIP] QuickSL: 收到客机 {requesterName} 请求");
+
+        DirectConnectIP.Patches.Game.UIManager_QuickSL.ShowConfirmDialog(
+            "Quick SL 请求",
+            $"{requesterName} 请求快速SL，是否同意？",
+            () =>
+            {
+                Log.Info($"[DirectConnectIP] QuickSL: 房主同意，执行 SL");
+                DirectConnectIP.Patches.Game.QuickSLFlow.InitiateFromHost();
+                SendModPacketToClient(senderId, new QuickSLResponsePacket(true));
+            },
+            () =>
+            {
+                Log.Info($"[DirectConnectIP] QuickSL: 房主拒绝");
+                SendModPacketToClient(senderId, new QuickSLResponsePacket(false));
+            }
+        );
     }
 
     private void HandleDisconnect(ENetPacketPeer? peer, NetError reason, bool notifyHandler)

@@ -17,13 +17,31 @@ target/
 bin/
 obj/
 out/
+build/
+*.pck
+
+# 构建时自动生成的版本文件
+DirectConnectIP.json
+mod_manifest.json
 
 # IDE 配置文件
 .idea/
 .vscode/
 *.sln
 *.csproj.user
+*.sln.DotSettings.user
 
 # 系统级缓存
 .DS_Store
 Thumbs.db
+
+# 辅助/参考材料（反编译工具、游戏反编译代码、参考 mod）
+ILSpy_linux-x64_11.0.0.9335-rc/
+Slay the Spire 2/
+MultiplayerQuickSL/
+MultiplayerQuickSL.json
+.claude/
+
+# 本地工作记录和代理配置
+AGENTS.md
+正式版 至 测试版.md

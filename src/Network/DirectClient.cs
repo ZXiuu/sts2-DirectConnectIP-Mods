@@ -3,18 +3,23 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DirectConnectIP.Helpers;
 using DirectConnectIP.Network.Packets;
+using DirectConnectIP.Patches.Game;
 using DirectConnectIP.Patches.Network;
 using Godot;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Multiplayer.Transport;
+using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Multiplayer.Transport.ENet;
 
 namespace DirectConnectIP.Network
 {
     public class DirectClient(INetClientHandler handler) : NetClient(handler)
     {
+        public static DirectClient? Current { get; private set; }
+
         private readonly MegaCrit.Sts2.Core.Logging.Logger _logger = new (nameof(DirectClient), LogType.Network);
         private ENetConnection? _connection;
         private ENetPacketPeer? _peer;
@@ -87,6 +92,7 @@ namespace DirectConnectIP.Network
 
             _hostNetId = response.Value.netId;
             _isConnected = true;
+            Current = this;
             OfflineTakeoverCore.IsDirectConnectActive = true;
             _handler.OnConnectedToHost();
             
@@ -207,13 +213,14 @@ namespace DirectConnectIP.Network
             if (!_isConnected) return;
             
             _isConnected = false;
+            Current = null;
             OfflineTakeoverCore.IsDirectConnectActive = false;
             PlayerNameRegistry.RemoteNames.Clear();
-            
+
             _connection?.Flush();
             _connection?.Destroy();
             _connection = null;
-            
+
             _handler.OnDisconnectedFromHost(_hostNetId, errorInfo);
         }
 
@@ -258,6 +265,12 @@ namespace DirectConnectIP.Network
             _peer.Send(ModPacketRouter.Channel, enetPacket.AllBytes, ENetUtil.FlagsFromMode(NetTransferMode.Reliable));
         }
 
+        public void SendQuickSLRequest()
+        {
+            if (!_isConnected) return;
+            SendModPacket(new QuickSLRequestPacket(_netId));
+        }
+
         private static void HandleModPacket(IModPacket packet)
         {
             switch (packet)
@@ -279,6 +292,24 @@ namespace DirectConnectIP.Network
                 case SyncRemovePacket remove:
                     PlayerNameRegistry.RemoteNames.Remove(remove.PlayerId);
                     break;
+
+                case QuickSLResponsePacket response:
+                    HandleQuickSLResponse(response);
+                    break;
+            }
+        }
+
+        private static void HandleQuickSLResponse(QuickSLResponsePacket response)
+        {
+            if (response.Accepted)
+            {
+                // 房主已同意，QuickSL 流程由 NErrorPopup_Create_Patch 自动触发重连
+                var log = MegaCrit.Sts2.Core.Logging.Log.Info;
+                QuickSLFlow.ExpectQuickSL = true;
+            }
+            else
+            {
+                MegaCrit.Sts2.Core.Logging.Log.Info("[DirectConnectIP] 房主拒绝了快速SL请求");
             }
         }
 
@@ -293,10 +324,11 @@ namespace DirectConnectIP.Network
         public override void DisconnectFromHost(NetError reason, bool now = false)
         {
             if (!_isConnected && _connection == null) return;
-            
+
             _isConnected = false;
+            Current = null;
             OfflineTakeoverCore.IsDirectConnectActive = false;
-            PlayerNameRegistry.RemoteNames.Clear(); 
+            PlayerNameRegistry.RemoteNames.Clear();
             try
             {
                 if (_peer != null)

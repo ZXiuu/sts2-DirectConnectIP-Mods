@@ -25,7 +25,7 @@ public static class OfflineTakeoverCore
 {
     private static readonly MethodInfo EnqueueActionMethod = AccessTools.Method(typeof(ActionQueueSynchronizer), "EnqueueAction");
     private static readonly MethodInfo HostBroadcastMessageMethod = AccessTools.Method(typeof(NetHostGameService), "BroadcastMessage");
-    private static readonly FieldInfo RunLobbyConnectedIdsField = AccessTools.Field(typeof(RunLobby), "_connectedPlayerIds");
+    private static readonly FieldInfo RunLobbyConnectedIdsField = AccessTools.Field(typeof(RunLobby), "_playerIds");
     private const ulong OfflineTakeoverDelayMs = 8_000;
     private static readonly Dictionary<ulong, OfflinePeerState> OfflinePeers = [];
     private static readonly object OfflinePeersLock = new();
@@ -159,7 +159,7 @@ public static class OfflineTakeoverCore
         }
         else if (netService.Type == NetGameType.Client && RunManager.Instance.RunLobby is RunLobby runLobby)
         {
-            foreach (var id in runLobby.ConnectedPlayerIds)
+            foreach (var id in runLobby.PlayerIds)
             {
                 ids.Add(id);
             }
@@ -548,7 +548,7 @@ public static class OfflineTakeoverCore
                 ids.Add(clientService.HostNetId);
                 if (RunManager.Instance.RunLobby is RunLobby runLobby)
                 {
-                    foreach (var id in runLobby.ConnectedPlayerIds)
+                    foreach (var id in runLobby.PlayerIds)
                     {
                         ids.Add(id);
                     }
